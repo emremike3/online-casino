@@ -1,10 +1,16 @@
 /**
  * Lightweight synthesized sound effects via the Web Audio API.
- * No asset files needed — every sound is generated on the fly. Respects a
- * global mute flag persisted in localStorage.
+ *
+ * No asset files — every sound is generated on the fly from oscillators and a
+ * shared white-noise buffer, routed through a master gain + compressor so
+ * nothing ever clips or stings. Sounds are designed to be subtle and
+ * *contextual* (cards "flick", chips "clink", reels "whoosh", wins chime).
+ * Respects a global mute flag persisted in localStorage.
  */
 
 let ctx: AudioContext | null = null
+let master: GainNode | null = null
+let noiseBuffer: AudioBuffer | null = null
 let muted = localStorage.getItem('lucky:muted') === '1'
 
 function getCtx(): AudioContext | null {
@@ -12,6 +18,21 @@ function getCtx(): AudioContext | null {
   if (!ctx) {
     try {
       ctx = new (window.AudioContext || (window as any).webkitAudioContext)()
+      // Master chain: everything → gain → soft compressor → speakers.
+      master = ctx.createGain()
+      master.gain.value = 0.55
+      const comp = ctx.createDynamicsCompressor()
+      comp.threshold.value = -14
+      comp.knee.value = 24
+      comp.ratio.value = 12
+      comp.attack.value = 0.003
+      comp.release.value = 0.18
+      master.connect(comp)
+      comp.connect(ctx.destination)
+      // 1s of white noise reused by all noise-based sounds.
+      noiseBuffer = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate)
+      const data = noiseBuffer.getChannelData(0)
+      for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1
     } catch {
       return null
     }
@@ -29,74 +50,120 @@ export function setMuted(value: boolean): void {
   localStorage.setItem('lucky:muted', value ? '1' : '0')
 }
 
-function tone(
-  freq: number,
-  duration: number,
-  type: OscillatorType = 'sine',
-  gain = 0.15,
-  startOffset = 0,
-): void {
-  if (muted) return
-  const audio = getCtx()
-  if (!audio) return
-  const now = audio.currentTime + startOffset
-  const osc = audio.createOscillator()
-  const env = audio.createGain()
-  osc.type = type
-  osc.frequency.setValueAtTime(freq, now)
-  env.gain.setValueAtTime(0, now)
-  env.gain.linearRampToValueAtTime(gain, now + 0.01)
-  env.gain.exponentialRampToValueAtTime(0.0001, now + duration)
-  osc.connect(env)
-  env.connect(audio.destination)
-  osc.start(now)
-  osc.stop(now + duration + 0.02)
+interface ToneOpts {
+  type?: OscillatorType
+  gain?: number
+  when?: number
+  glideTo?: number
+  attack?: number
 }
 
-function sweep(from: number, to: number, duration: number, gain = 0.12): void {
+/** A single oscillator note with a smooth attack/exponential release. */
+function tone(freq: number, dur: number, o: ToneOpts = {}): void {
   if (muted) return
   const audio = getCtx()
-  if (!audio) return
-  const now = audio.currentTime
+  if (!audio || !master) return
+  const { type = 'sine', gain = 0.18, when = 0, glideTo, attack = 0.006 } = o
+  const t = audio.currentTime + when
   const osc = audio.createOscillator()
-  const env = audio.createGain()
-  osc.type = 'sawtooth'
-  osc.frequency.setValueAtTime(from, now)
-  osc.frequency.exponentialRampToValueAtTime(to, now + duration)
-  env.gain.setValueAtTime(gain, now)
-  env.gain.exponentialRampToValueAtTime(0.0001, now + duration)
-  osc.connect(env)
-  env.connect(audio.destination)
-  osc.start(now)
-  osc.stop(now + duration + 0.02)
+  const g = audio.createGain()
+  osc.type = type
+  osc.frequency.setValueAtTime(freq, t)
+  if (glideTo) osc.frequency.exponentialRampToValueAtTime(Math.max(1, glideTo), t + dur)
+  g.gain.setValueAtTime(0.0001, t)
+  g.gain.linearRampToValueAtTime(gain, t + attack)
+  g.gain.exponentialRampToValueAtTime(0.0001, t + dur)
+  osc.connect(g)
+  g.connect(master)
+  osc.start(t)
+  osc.stop(t + dur + 0.03)
+}
+
+interface NoiseOpts {
+  type?: BiquadFilterType
+  freq?: number
+  freqEnd?: number
+  q?: number
+  gain?: number
+  when?: number
+}
+
+/** A filtered white-noise burst — the basis for card/chip/whoosh/boom sounds. */
+function noise(dur: number, o: NoiseOpts = {}): void {
+  if (muted) return
+  const audio = getCtx()
+  if (!audio || !master || !noiseBuffer) return
+  const { type = 'bandpass', freq = 2000, freqEnd, q = 1, gain = 0.15, when = 0 } = o
+  const t = audio.currentTime + when
+  const src = audio.createBufferSource()
+  src.buffer = noiseBuffer
+  const filter = audio.createBiquadFilter()
+  filter.type = type
+  filter.frequency.setValueAtTime(freq, t)
+  if (freqEnd) filter.frequency.exponentialRampToValueAtTime(Math.max(20, freqEnd), t + dur)
+  filter.Q.value = q
+  const g = audio.createGain()
+  g.gain.setValueAtTime(0.0001, t)
+  g.gain.linearRampToValueAtTime(gain, t + 0.005)
+  g.gain.exponentialRampToValueAtTime(0.0001, t + dur)
+  src.connect(filter)
+  filter.connect(g)
+  g.connect(master)
+  src.start(t)
+  src.stop(t + dur + 0.03)
 }
 
 export const sfx = {
-  click: () => tone(420, 0.06, 'triangle', 0.08),
-  tick: () => tone(880, 0.03, 'square', 0.04),
-  bet: () => tone(320, 0.08, 'sine', 0.1),
-  reveal: () => tone(660, 0.07, 'triangle', 0.09),
+  // — UI —
+  click: () => tone(300, 0.045, { type: 'triangle', gain: 0.07 }),
+  tick: () => tone(1400, 0.018, { type: 'sine', gain: 0.035 }),
+
+  // — chips / cards —
+  bet: () => {
+    // chip clink: bright transient + two soft metallic partials
+    noise(0.05, { type: 'highpass', freq: 4200, q: 1, gain: 0.06 })
+    tone(1080, 0.06, { type: 'triangle', gain: 0.1 })
+    tone(1520, 0.07, { type: 'triangle', gain: 0.07, when: 0.04 })
+  },
+  card: () => {
+    // quick paper "fwip": bandpass noise sweeping down + a little body
+    noise(0.085, { type: 'bandpass', freq: 3800, freqEnd: 1400, q: 0.7, gain: 0.16 })
+    tone(180, 0.05, { type: 'triangle', gain: 0.05 })
+  },
+  reveal: () => tone(740, 0.13, { type: 'triangle', gain: 0.12, glideTo: 1180 }),
+
+  // — outcomes —
   win: () => {
-    tone(523.25, 0.12, 'triangle', 0.12, 0)
-    tone(659.25, 0.12, 'triangle', 0.12, 0.1)
-    tone(783.99, 0.22, 'triangle', 0.13, 0.2)
+    tone(523.25, 0.18, { type: 'triangle', gain: 0.12 })
+    tone(659.25, 0.18, { type: 'triangle', gain: 0.12, when: 0.085 })
+    tone(783.99, 0.26, { type: 'triangle', gain: 0.13, when: 0.17 })
   },
   bigWin: () => {
-    tone(523.25, 0.14, 'triangle', 0.14, 0)
-    tone(659.25, 0.14, 'triangle', 0.14, 0.12)
-    tone(783.99, 0.14, 'triangle', 0.14, 0.24)
-    tone(1046.5, 0.32, 'triangle', 0.15, 0.36)
+    tone(523.25, 0.16, { type: 'triangle', gain: 0.12 })
+    tone(659.25, 0.16, { type: 'triangle', gain: 0.12, when: 0.1 })
+    tone(783.99, 0.16, { type: 'triangle', gain: 0.13, when: 0.2 })
+    tone(1046.5, 0.36, { type: 'triangle', gain: 0.14, when: 0.3 })
+    noise(0.3, { type: 'highpass', freq: 6500, q: 0.8, gain: 0.04, when: 0.28 })
   },
-  lose: () => tone(180, 0.25, 'sine', 0.1),
-  explode: () => sweep(400, 60, 0.4, 0.18),
+  lose: () => {
+    tone(392, 0.16, { type: 'sine', gain: 0.1, glideTo: 233 })
+    tone(196, 0.22, { type: 'sine', gain: 0.07, when: 0.1 })
+  },
+  explode: () => {
+    // muffled boom: lowpass noise collapsing + a sub thump
+    noise(0.45, { type: 'lowpass', freq: 900, freqEnd: 90, q: 1, gain: 0.28 })
+    tone(70, 0.32, { type: 'sine', gain: 0.2, glideTo: 40 })
+  },
   cashout: () => {
-    tone(659.25, 0.1, 'triangle', 0.12, 0)
-    tone(987.77, 0.18, 'triangle', 0.12, 0.08)
+    tone(659.25, 0.09, { type: 'triangle', gain: 0.12 })
+    tone(987.77, 0.14, { type: 'triangle', gain: 0.12, when: 0.06 })
+    noise(0.12, { type: 'highpass', freq: 6000, q: 0.8, gain: 0.05, when: 0.05 })
   },
-  spin: () => sweep(200, 600, 0.5, 0.06),
-  card: () => tone(300, 0.05, 'square', 0.05),
+
+  // — motion / money —
+  spin: () => noise(0.5, { type: 'bandpass', freq: 320, freqEnd: 2200, q: 1.2, gain: 0.12 }),
   coin: () => {
-    tone(880, 0.05, 'square', 0.06, 0)
-    tone(1320, 0.08, 'square', 0.06, 0.04)
+    tone(1318.5, 0.07, { type: 'triangle', gain: 0.12 })
+    tone(1975.5, 0.16, { type: 'triangle', gain: 0.11, when: 0.05 })
   },
 }

@@ -98,7 +98,9 @@ export function Blackjack() {
   const [deck, setDeck] = useState<number[]>([])
   const [pointer, setPointer] = useState(0)
 
-  const roundActive = phase !== 'idle'
+  // Active only while a hand is in progress — a finished ('done') round must
+  // NOT block dealing again or adjusting the next bet.
+  const roundActive = phase === 'player' || phase === 'dealer'
   const inputLocked = busy || phase === 'dealer'
 
   const playerScore = handTotal(player)

@@ -55,7 +55,28 @@ export function GameLayout({ game, controls, children }: GameLayoutProps) {
           {controls}
         </aside>
         <main className="relative flex min-h-[360px] flex-1 items-center justify-center overflow-hidden p-4 sm:min-h-[480px] sm:p-6">
-          {children}
+          {/* Per-game accent ambiance — gives every game its own colour identity */}
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-0"
+            style={{
+              background: `radial-gradient(ellipse 75% 55% at 50% -5%, ${game.accent}24, transparent 70%)`,
+            }}
+          />
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-x-0 bottom-0 h-1"
+            style={{ background: `linear-gradient(90deg, transparent, ${game.accent}, transparent)`, opacity: 0.5 }}
+          />
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-0 opacity-[0.04]"
+            style={{
+              backgroundImage: 'radial-gradient(circle, #fff 1px, transparent 1px)',
+              backgroundSize: '22px 22px',
+            }}
+          />
+          <div className="relative z-10 flex w-full items-center justify-center">{children}</div>
         </main>
       </div>
 

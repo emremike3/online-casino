@@ -1,0 +1,110 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    color-scheme: dark;
+  }
+
+  * {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  body {
+    @apply bg-base text-white font-sans antialiased;
+    background-image: radial-gradient(
+        ellipse 80% 50% at 50% -10%,
+        rgba(124, 92, 255, 0.12),
+        transparent
+      ),
+      radial-gradient(ellipse 60% 40% at 90% 10%, rgba(79, 140, 255, 0.08), transparent);
+    background-attachment: fixed;
+    overflow-x: hidden;
+  }
+
+  /* Custom scrollbar */
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply bg-border rounded-full;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-hover;
+  }
+
+  /* Remove number input spinners */
+  input[type='number']::-webkit-inner-spin-button,
+  input[type='number']::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  input[type='number'] {
+    -moz-appearance: textfield;
+  }
+}
+
+@layer components {
+  .card {
+    @apply bg-surface border border-border rounded-2xl shadow-card;
+  }
+
+  .panel {
+    @apply bg-elevated border border-border rounded-xl;
+  }
+
+  .input-field {
+    @apply w-full bg-base border border-border rounded-lg px-3 py-2.5 text-sm font-medium
+           text-white placeholder:text-subtle outline-none transition-colors
+           focus:border-brand/60 focus:ring-1 focus:ring-brand/40;
+  }
+
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg font-semibold
+           transition-all duration-150 active:scale-[0.98] disabled:opacity-50
+           disabled:pointer-events-none select-none;
+  }
+
+  .btn-primary {
+    @apply btn bg-brand-gradient text-white shadow-glow hover:brightness-110;
+  }
+
+  .btn-win {
+    @apply btn bg-win-gradient text-black font-bold hover:brightness-105;
+  }
+
+  .btn-ghost {
+    @apply btn bg-elevated border border-border text-muted hover:text-white hover:bg-hover;
+  }
+
+  .chip {
+    @apply inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold;
+  }
+
+  .stat-label {
+    @apply text-xs font-medium uppercase tracking-wide text-subtle;
+  }
+
+  /* subtle gradient text */
+  .text-gradient {
+    @apply bg-clip-text text-transparent bg-brand-gradient;
+  }
+
+  .scroll-hidden {
+    scrollbar-width: none;
+  }
+  .scroll-hidden::-webkit-scrollbar {
+    display: none;
+  }
+}

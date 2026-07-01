@@ -73,7 +73,7 @@ export function Home() {
 
       <footer className="mt-12 border-t border-border pt-6 text-center">
         <p className="text-xs text-subtle">
-          Lucky is a play-money casino for entertainment only. No real money, deposits, withdrawals or
+          Jacasino is a play-money casino for entertainment only. No real money, deposits, withdrawals or
           prizes are involved. 18+.
         </p>
       </footer>

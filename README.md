@@ -1,4 +1,4 @@
-# 🎰 Lucky — Fun-Money Online Casino
+# 🎰 Jacasino — Fun-Money Online Casino
 
 A sleek, modern, **play-money** online casino built with React + TypeScript.
 Clean dark UI and smooth animations inspired by crypto casinos like duel.com —
@@ -25,8 +25,12 @@ Purely for entertainment. 18+.
   desktop.
 - **Persistent wallet** — balance, stats, bet history and your fairness seeds are
   saved locally. Top up or reset any time from the Wallet.
-- **Live bets ticker**, recent-results history, win/loss stats, and a polished
-  lobby.
+- **Live bets ticker** (your bets woven in with simulated players),
+  recent-results history, win/loss stats, and a polished lobby.
+- **Leaderboard** — biggest wins today / this week; your best win of the period
+  is ranked against a stable, seeded field of simulated players.
+- **Sound toggle + volume slider** — synthesized Web-Audio effects with mute and
+  volume persisted in `localStorage`.
 
 ## 🚀 Getting started
 
@@ -58,7 +62,7 @@ src/
 ├── data/games.ts      # the game registry (metadata + grouping)
 ├── games/             # one file per game + registry.tsx (code-split routes)
 ├── lib/               # rng (provably fair), format, sound, cn
-├── pages/             # Home (lobby) + GamePage (loads a game by id)
+├── pages/             # Home (lobby), Leaderboard, GamePage (loads a game by id)
 ├── store/useStore.ts  # balance, fairness, history, stats
 └── index.css          # Tailwind layers + design tokens
 ```
@@ -76,6 +80,6 @@ See `src/lib/rng.ts` and `docs/GAME_CONTRACT.md` for details.
 
 ## 📜 Disclaimer
 
-For entertainment only. Lucky uses **virtual fun-money with no monetary value**
+For entertainment only. Jacasino uses **virtual fun-money with no monetary value**
 and offers no way to deposit, withdraw or win real money or prizes. It is not
 gambling. If real gambling is affecting you, seek help (e.g. begambleaware.org).

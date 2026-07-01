@@ -80,6 +80,18 @@ function freshFairness(): Fairness {
   }
 }
 
+// One-time migration: the app was renamed from "Lucky" to "Jacasino"; carry
+// over any previously persisted wallet so returning players keep their state.
+try {
+  const legacy = localStorage.getItem('lucky-casino')
+  if (legacy && !localStorage.getItem('jacasino')) {
+    localStorage.setItem('jacasino', legacy)
+    localStorage.removeItem('lucky-casino')
+  }
+} catch {
+  /* storage unavailable (SSR/privacy mode) — start fresh */
+}
+
 const initialStats: Stats = {
   totalWagered: 0,
   totalProfit: 0,
@@ -185,7 +197,7 @@ export const useStore = create<CasinoState>()(
       },
     }),
     {
-      name: 'lucky-casino',
+      name: 'jacasino',
       version: 1,
       partialize: (s) => ({
         balance: s.balance,

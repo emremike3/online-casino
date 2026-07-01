@@ -1,9 +1,9 @@
 {
-  "name": "lucky-casino",
+  "name": "jacasino",
   "private": true,
   "version": "1.0.0",
   "type": "module",
-  "description": "A clean, modern fun-money online casino with provably fair games.",
+  "description": "Jacasino — a clean, modern fun-money online casino with provably fair games.",
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",

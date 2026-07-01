@@ -1,6 +1,6 @@
 import { NavLink, Link } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
-import { Home, Sparkles, Gem, X } from 'lucide-react'
+import { Home, Sparkles, Gem, Trophy, X } from 'lucide-react'
 import { GAMES } from '@/data/games'
 import { cn } from '@/lib/cn'
 import { LogoMark } from './Topbar'
@@ -19,7 +19,7 @@ function NavContent({ onNavigate }: { onNavigate?: () => void }) {
       <Link to="/" onClick={onNavigate} className="flex items-center gap-2.5 px-5 py-5">
         <LogoMark />
         <div>
-          <span className="text-xl font-extrabold tracking-tight">Lucky</span>
+          <span className="text-xl font-extrabold tracking-tight">Jacasino</span>
           <p className="-mt-0.5 text-[10px] font-medium uppercase tracking-widest text-subtle">
             Fun-Money Casino
           </p>
@@ -40,6 +40,18 @@ function NavContent({ onNavigate }: { onNavigate?: () => void }) {
             }
           >
             <Home size={18} /> Home
+          </NavLink>
+          <NavLink
+            to="/leaderboard"
+            onClick={onNavigate}
+            className={({ isActive }) =>
+              cn(
+                'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-semibold transition-colors',
+                isActive ? 'bg-brand/15 text-white' : 'text-muted hover:bg-hover hover:text-white',
+              )
+            }
+          >
+            <Trophy size={18} /> Leaderboard
           </NavLink>
         </div>
 

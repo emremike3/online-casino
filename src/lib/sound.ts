@@ -8,10 +8,20 @@
  * Respects a global mute flag persisted in localStorage.
  */
 
+const MASTER_GAIN = 0.8
+
 let ctx: AudioContext | null = null
 let master: GainNode | null = null
 let noiseBuffer: AudioBuffer | null = null
-let muted = localStorage.getItem('lucky:muted') === '1'
+let muted = localStorage.getItem('jacasino:muted') === '1'
+let volume = readVolume()
+
+function readVolume(): number {
+  const raw = localStorage.getItem('jacasino:volume')
+  if (raw === null) return 0.7
+  const value = Number(raw)
+  return Number.isFinite(value) && value >= 0 && value <= 1 ? value : 0.7
+}
 
 function getCtx(): AudioContext | null {
   if (typeof window === 'undefined') return null
@@ -20,7 +30,7 @@ function getCtx(): AudioContext | null {
       ctx = new (window.AudioContext || (window as any).webkitAudioContext)()
       // Master chain: everything → gain → soft compressor → speakers.
       master = ctx.createGain()
-      master.gain.value = 0.55
+      master.gain.value = MASTER_GAIN * volume
       const comp = ctx.createDynamicsCompressor()
       comp.threshold.value = -14
       comp.knee.value = 24
@@ -47,7 +57,17 @@ export function isMuted(): boolean {
 
 export function setMuted(value: boolean): void {
   muted = value
-  localStorage.setItem('lucky:muted', value ? '1' : '0')
+  localStorage.setItem('jacasino:muted', value ? '1' : '0')
+}
+
+export function getVolume(): number {
+  return volume
+}
+
+export function setVolume(value: number): void {
+  volume = Math.min(1, Math.max(0, value))
+  localStorage.setItem('jacasino:volume', String(volume))
+  if (master && ctx) master.gain.setTargetAtTime(MASTER_GAIN * volume, ctx.currentTime, 0.02)
 }
 
 interface ToneOpts {

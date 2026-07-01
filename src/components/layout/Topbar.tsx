@@ -1,10 +1,10 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Coins, Wallet, Volume2, VolumeX, Menu, Plus } from 'lucide-react'
+import { Coins, Wallet, Volume1, Volume2, VolumeX, Menu, Plus } from 'lucide-react'
 import { useStore } from '@/store/useStore'
 import { AnimatedNumber } from '@/components/ui/AnimatedNumber'
 import { WalletModal } from './WalletModal'
-import { isMuted, setMuted, sfx } from '@/lib/sound'
+import { getVolume, isMuted, setMuted, setVolume, sfx } from '@/lib/sound'
 
 interface TopbarProps {
   onMenu: () => void
@@ -13,14 +13,6 @@ interface TopbarProps {
 export function Topbar({ onMenu }: TopbarProps) {
   const balance = useStore((s) => s.balance)
   const [walletOpen, setWalletOpen] = useState(false)
-  const [muted, setMutedState] = useState(isMuted())
-
-  const toggleMute = () => {
-    const next = !muted
-    setMuted(next)
-    setMutedState(next)
-    if (!next) sfx.click()
-  }
 
   return (
     <>
@@ -35,7 +27,7 @@ export function Topbar({ onMenu }: TopbarProps) {
 
           <Link to="/" className="flex items-center gap-2 lg:hidden">
             <LogoMark />
-            <span className="text-lg font-extrabold tracking-tight">Lucky</span>
+            <span className="text-lg font-extrabold tracking-tight">Jacasino</span>
           </Link>
 
           <div className="flex-1" />
@@ -61,18 +53,89 @@ export function Topbar({ onMenu }: TopbarProps) {
             <Wallet size={16} />
           </button>
 
-          <button
-            onClick={toggleMute}
-            className="grid h-9 w-9 place-items-center rounded-lg border border-border bg-elevated text-muted transition-colors hover:text-white"
-            title={muted ? 'Unmute' : 'Mute'}
-          >
-            {muted ? <VolumeX size={16} /> : <Volume2 size={16} />}
-          </button>
+          <SoundControl />
         </div>
       </header>
 
       <WalletModal open={walletOpen} onClose={() => setWalletOpen(false)} />
     </>
+  )
+}
+
+/**
+ * Speaker button that toggles mute on click and reveals a volume slider in a
+ * small popover. Both mute state and volume persist in localStorage.
+ */
+function SoundControl() {
+  const [muted, setMutedState] = useState(isMuted())
+  const [volume, setVolumeState] = useState(getVolume())
+  const [open, setOpen] = useState(false)
+  const rootRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!open) return
+    const onPointerDown = (e: PointerEvent) => {
+      if (rootRef.current && !rootRef.current.contains(e.target as Node)) setOpen(false)
+    }
+    window.addEventListener('pointerdown', onPointerDown)
+    return () => window.removeEventListener('pointerdown', onPointerDown)
+  }, [open])
+
+  const toggleMute = () => {
+    const next = !muted
+    setMuted(next)
+    setMutedState(next)
+    if (!next) sfx.click()
+  }
+
+  const onVolume = (value: number) => {
+    setVolume(value)
+    setVolumeState(value)
+    if (muted && value > 0) {
+      setMuted(false)
+      setMutedState(false)
+    }
+    sfx.tick()
+  }
+
+  const VolumeIcon = muted || volume === 0 ? VolumeX : volume < 0.5 ? Volume1 : Volume2
+
+  return (
+    <div ref={rootRef} className="relative">
+      <button
+        onClick={toggleMute}
+        onContextMenu={(e) => {
+          e.preventDefault()
+          setOpen((v) => !v)
+        }}
+        onMouseEnter={() => setOpen(true)}
+        className="grid h-9 w-9 place-items-center rounded-lg border border-border bg-elevated text-muted transition-colors hover:text-white"
+        title={muted ? 'Unmute' : 'Mute (hover for volume)'}
+      >
+        <VolumeIcon size={16} />
+      </button>
+
+      {open && (
+        <div
+          onMouseLeave={() => setOpen(false)}
+          className="absolute right-0 top-full z-40 w-44 rounded-xl border border-border bg-surface p-3 shadow-xl"
+        >
+          <div className="mb-2 flex items-center justify-between text-[11px] font-semibold uppercase tracking-wide text-subtle">
+            <span>Volume</span>
+            <span className="font-mono tabular-nums">{muted ? 'Muted' : `${Math.round(volume * 100)}%`}</span>
+          </div>
+          <input
+            type="range"
+            min={0}
+            max={100}
+            value={muted ? 0 : Math.round(volume * 100)}
+            onChange={(e) => onVolume(Number(e.target.value) / 100)}
+            className="w-full accent-brand"
+            aria-label="Volume"
+          />
+        </div>
+      )}
+    </div>
   )
 }
 

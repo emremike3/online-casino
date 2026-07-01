@@ -1,26 +1,23 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { Radio } from 'lucide-react'
 import { GAMES } from '@/data/games'
+import { PLAYER_NAMES } from '@/data/players'
 import { formatMultiplier } from '@/lib/format'
+import { useStore, type BetRecord } from '@/store/useStore'
 
 interface LiveBet {
-  id: number
+  id: string
   user: string
   game: string
   bet: number
   multiplier: number
   payout: number
   win: boolean
+  isYou?: boolean
 }
 
-const NAMES = [
-  'Nova', 'Pixel', 'Zephyr', 'Echo', 'Riff', 'Lunar', 'Vortex', 'Cipher', 'Quartz', 'Blaze',
-  'Drift', 'Onyx', 'Spark', 'Glitch', 'Maple', 'Frost', 'Cobalt', 'Rogue', 'Aero', 'Jade',
-  'Nimbus', 'Volt', 'Sable', 'Crimson', 'Halo', 'Specter', 'Lyric', 'Atlas', 'Koi', 'Wren',
-]
-
-function randomBet(id: number): LiveBet {
+function randomBet(id: string): LiveBet {
   const game = GAMES[Math.floor(Math.random() * GAMES.length)]
   const win = Math.random() > 0.52
   const bet = Math.round((Math.random() * 480 + 2) * 100) / 100
@@ -32,23 +29,62 @@ function randomBet(id: number): LiveBet {
   else if (roll > 0.85) multiplier = Math.round((Math.random() * 6 + 2) * 100) / 100
   else multiplier = Math.round((Math.random() * 1.4 + 1.05) * 100) / 100
 
-  const user = NAMES[Math.floor(Math.random() * NAMES.length)] + (Math.floor(Math.random() * 900) + 100)
+  const user = PLAYER_NAMES[Math.floor(Math.random() * PLAYER_NAMES.length)] + (Math.floor(Math.random() * 900) + 100)
   return { id, user, game: game.name, bet, multiplier, payout: Math.round(bet * multiplier * 100) / 100, win }
 }
 
+function toFeedBet(record: BetRecord): LiveBet {
+  return {
+    id: `u${record.id}`,
+    user: 'You',
+    game: record.gameLabel,
+    bet: record.betAmount,
+    multiplier: record.multiplier,
+    payout: record.payout,
+    win: record.win,
+    isYou: true,
+  }
+}
+
 export function LiveBets() {
-  const [bets, setBets] = useState<LiveBet[]>(() =>
-    Array.from({ length: 8 }, (_, i) => randomBet(i)),
-  )
+  const [bets, setBets] = useState<LiveBet[]>(() => {
+    // Seed with the player's two most recent bets woven between fake ones.
+    const mine = useStore.getState().history.slice(0, 2).map(toFeedBet)
+    const fakes = Array.from({ length: 8 - mine.length }, (_, i) => randomBet(`f${i}`))
+    if (mine.length === 0) return fakes
+    const feed = [...fakes]
+    feed.splice(1, 0, mine[0])
+    if (mine[1]) feed.splice(4, 0, mine[1])
+    return feed.slice(0, 8)
+  })
+  const latest = useStore((s) => s.history[0])
+  const lastSeenRef = useRef(latest?.id)
 
   useEffect(() => {
     let id = 1000
     const tick = () => {
-      setBets((prev) => [randomBet(id++), ...prev].slice(0, 9))
+      setBets((prev) => [randomBet(`f${id++}`), ...prev].slice(0, 9))
     }
     const interval = setInterval(tick, 1600 + Math.random() * 1200)
     return () => clearInterval(interval)
   }, [])
+
+  // Weave the user's own bets into the feed as they happen.
+  useEffect(() => {
+    if (!latest || latest.id === lastSeenRef.current) return
+    lastSeenRef.current = latest.id
+    const mine: LiveBet = {
+      id: `u${latest.id}`,
+      user: 'You',
+      game: latest.gameLabel,
+      bet: latest.betAmount,
+      multiplier: latest.multiplier,
+      payout: latest.payout,
+      win: latest.win,
+      isYou: true,
+    }
+    setBets((prev) => [mine, ...prev].slice(0, 9))
+  }, [latest])
 
   return (
     <div className="card overflow-hidden">
@@ -77,13 +113,19 @@ export function LiveBets() {
               animate={{ opacity: 1, y: 0, height: 'auto' }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.25 }}
-              className="grid grid-cols-[1fr_auto_auto] items-center gap-x-3 rounded-lg px-2 py-2 text-sm odd:bg-elevated/40"
+              className={`grid grid-cols-[1fr_auto_auto] items-center gap-x-3 rounded-lg px-2 py-2 text-sm ${
+                b.isYou ? 'bg-brand/15 ring-1 ring-inset ring-brand/40' : 'odd:bg-elevated/40'
+              }`}
             >
               <div className="flex min-w-0 items-center gap-2">
-                <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-brand/20 text-[10px] font-bold text-brand-light">
+                <span
+                  className={`grid h-6 w-6 shrink-0 place-items-center rounded-full text-[10px] font-bold ${
+                    b.isYou ? 'bg-brand text-white' : 'bg-brand/20 text-brand-light'
+                  }`}
+                >
                   {b.user.slice(0, 1)}
                 </span>
-                <span className="truncate font-medium text-muted">{b.user}</span>
+                <span className={`truncate font-medium ${b.isYou ? 'text-white' : 'text-muted'}`}>{b.user}</span>
                 <span className="hidden truncate text-xs text-subtle sm:inline">· {b.game}</span>
               </div>
               <span
